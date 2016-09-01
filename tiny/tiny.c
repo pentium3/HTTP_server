@@ -1,15 +1,11 @@
-/* $begin tinymain */
-/*
- * tiny.c - A simple, iterative HTTP/1.0 Web server that uses the 
- *     GET method to serve static and dynamic content.
- */
+
 #include "csapp.h"
 
+static int Tcnt=0;
 
 /*
  * doit - handle one HTTP request/response transaction
  */
-/* $begin doit */
 void doit(int fd) 
 {
     int is_static;
@@ -32,29 +28,25 @@ void doit(int fd)
     read_requesthdrs(&rio);                              //line:netp:doit:readrequesthdrs
 
     /* Parse URI from GET request */
-    is_static = parse_uri(uri, filename);       //line:netp:doit:staticcheck
+    parse_uri(uri, filename);       //line:netp:doit:staticcheck
     if (stat(filename, &sbuf) < 0) 
     {                     //line:netp:doit:beginnotfound
         clienterror(fd, filename, "404", "Not found", "Tiny couldn't find this file");
         return;
     }                                                    //line:netp:doit:endnotfound
 
-    if (is_static) 
-    { /* Serve static content */          
-        if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) 
-        {     //line:netp:doit:readable
-            clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
-            return;
-        }
-        serve_static(fd, filename, sbuf.st_size);        //line:netp:doit:servestatic
+     /* Serve static content */          
+    if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) 
+    {     //line:netp:doit:readable
+        clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
+        return;
     }
+    serve_static(fd, filename, sbuf.st_size);        //line:netp:doit:servestatic
 }
-/* $end doit */
 
 /*
  * read_requesthdrs - read HTTP request headers
  */
-/* $begin read_requesthdrs */
 void read_requesthdrs(rio_t *rp) 
 {
     char buf[MAXLINE];
@@ -67,28 +59,23 @@ void read_requesthdrs(rio_t *rp)
     }
     return;
 }
-/* $end read_requesthdrs */
 
 /*
  * parse_uri - parse URI into filename and CGI args
  *             return 0 if dynamic content, 1 if static
  */
-/* $begin parse_uri */
-int parse_uri(char *uri, char *filename) 
+void parse_uri(char *uri, char *filename) 
 {
     /* Static content */                                 //line:netp:parseuri:isstatic
     strcpy(filename, ".");                           //line:netp:parseuri:beginconvert1
     strcat(filename, uri);                           //line:netp:parseuri:endconvert1
     if (uri[strlen(uri)-1] == '/')                   //line:netp:parseuri:slashcheck
            strcat(filename, "home.html");               //line:netp:parseuri:appenddefault
-    return 1;
 }
-/* $end parse_uri */
 
 /*
  * serve_static - copy a file back to the client 
  */
-/* $begin serve_static */
 void serve_static(int fd, char *filename, int filesize) 
 {
     int srcfd;
@@ -129,12 +116,10 @@ void get_filetype(char *filename, char *filetype)
     else
         strcpy(filetype, "text/plain");
 }  
-/* $end serve_static */
 
 /*
  * clienterror - returns an error message to the client
  */
-/* $begin clienterror */
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) 
 {
     char buf[MAXLINE], body[MAXBUF];
@@ -155,15 +140,17 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
     Rio_writen(fd, buf, strlen(buf));
     Rio_writen(fd, body, strlen(body));
 }
-/* $end clienterror */
 
 void *thread(void *vargp)
 {
+    Tcnt++;
+    printf("Num of thread: %d\n",Tcnt);
     int connfd=*((int *)vargp);
     Pthread_detach(pthread_self());
     Free(vargp);
-    doit(connfd);                                             //line:netp:tiny:doit
+    doit(connfd);
     Close(connfd);   
+    Tcnt--;
     return NULL;
 }
 
@@ -175,10 +162,10 @@ int main(int argc, char **argv)
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;
 
-    /* Check command line args */
-    if (argc != 2) {
-    fprintf(stderr, "usage: %s <port>\n", argv[0]);
-    exit(1);
+    if (argc != 2) 
+    {
+        fprintf(stderr, "usage: %s <port>\n", argv[0]);
+        exit(1);
     }
 
     listenfd = Open_listenfd(argv[1]);
@@ -188,8 +175,7 @@ int main(int argc, char **argv)
         connfdp=malloc(sizeof(int));
         *connfdp = Accept(listenfd, (SA *)&clientaddr, &clientlen); //line:netp:tiny:accept
         Getnameinfo((SA *) &clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
-        printf("Accepted connection from (%s, %s)\n", hostname, port);  //line:netp:tiny:close
+        printf("********************************\nAccepted connection from (%s, %s)\n", hostname, port);  //line:netp:tiny:close
         Pthread_create(&tid,NULL,thread,connfdp);
     }
 }
-/* $end tinymain */
