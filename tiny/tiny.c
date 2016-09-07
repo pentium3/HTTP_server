@@ -3,10 +3,7 @@
 
 static int Tcnt=0;
 
-/*
- * doit - handle one HTTP request/response transaction
- */
-void doit(int fd) 
+void run(int fd) 
 {
     int is_static;
     struct stat sbuf;
@@ -14,95 +11,76 @@ void doit(int fd)
     char filename[MAXLINE];
     rio_t rio;
 
-    /* Read request line and headers */
     Rio_readinitb(&rio, fd);
-    if (!Rio_readlineb(&rio, buf, MAXLINE))  //line:netp:doit:readrequest
+    if (!Rio_readlineb(&rio, buf, MAXLINE))
         return;
     printf("%s", buf);
-    sscanf(buf, "%s %s %s", method, uri, version);       //line:netp:doit:parserequest
+    sscanf(buf, "%s %s %s", method, uri, version);
     if (strcasecmp(method, "GET")) 
-    {                     //line:netp:doit:beginrequesterr
-        clienterror(fd, method, "501", "Not Implemented", "Tiny does not implement this method");
+    {
+        clienterror(fd, method, "501", "Unsupported method", "Tiny does not support this method");
         return;
-    }                                                    //line:netp:doit:endrequesterr
-    read_requesthdrs(&rio);                              //line:netp:doit:readrequesthdrs
+    }
+    read_requesthdrs(&rio);
 
-    /* Parse URI from GET request */
-    parse_uri(uri, filename);       //line:netp:doit:staticcheck
+    parse_uri(uri, filename);
     if (stat(filename, &sbuf) < 0) 
-    {                     //line:netp:doit:beginnotfound
+    {
         clienterror(fd, filename, "404", "Not found", "Tiny couldn't find this file");
         return;
-    }                                                    //line:netp:doit:endnotfound
-
-     /* Serve static content */          
+    }
+          
     if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) 
-    {     //line:netp:doit:readable
+    {
         clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
         return;
     }
-    serve_static(fd, filename, sbuf.st_size);        //line:netp:doit:servestatic
+    serve_static(fd, filename, sbuf.st_size);
 }
 
-/*
- * read_requesthdrs - read HTTP request headers
- */
 void read_requesthdrs(rio_t *rp) 
 {
     char buf[MAXLINE];
     Rio_readlineb(rp, buf, MAXLINE);
     printf("%s", buf);
     while(strcmp(buf, "\r\n")) 
-    {          //line:netp:readhdrs:checkterm
+    {
         Rio_readlineb(rp, buf, MAXLINE);
         printf("%s", buf);
     }
     return;
 }
 
-/*
- * parse_uri - parse URI into filename and CGI args
- *             return 0 if dynamic content, 1 if static
- */
 void parse_uri(char *uri, char *filename) 
 {
-    /* Static content */                                 //line:netp:parseuri:isstatic
-    strcpy(filename, ".");                           //line:netp:parseuri:beginconvert1
-    strcat(filename, uri);                           //line:netp:parseuri:endconvert1
-    if (uri[strlen(uri)-1] == '/')                   //line:netp:parseuri:slashcheck
-           strcat(filename, "home.html");               //line:netp:parseuri:appenddefault
+    strcpy(filename, ".");
+    strcat(filename, uri);
+    if (uri[strlen(uri)-1] == '/')
+           strcat(filename, "home.html");
 }
 
-/*
- * serve_static - copy a file back to the client 
- */
 void serve_static(int fd, char *filename, int filesize) 
 {
     int srcfd;
     char *srcp, filetype[MAXLINE], buf[MAXBUF];
  
-    /* Send response headers to client */
-    get_filetype(filename, filetype);       //line:netp:servestatic:getfiletype
-    sprintf(buf, "HTTP/1.0 200 OK\r\n");    //line:netp:servestatic:beginserve
+    get_filetype(filename, filetype); 
+    sprintf(buf, "HTTP/1.0 200 OK\r\n");
     sprintf(buf, "%sServer: Tiny Web Server\r\n", buf);
     sprintf(buf, "%sConnection: close\r\n", buf);
     sprintf(buf, "%sContent-length: %d\r\n", buf, filesize);
     sprintf(buf, "%sContent-type: %s\r\n\r\n", buf, filetype);
-    Rio_writen(fd, buf, strlen(buf));       //line:netp:servestatic:endserve
+    Rio_writen(fd, buf, strlen(buf));
     printf("Response headers:\n");
     printf("%s", buf);
 
-    /* Send response body to client */
-    srcfd = Open(filename, O_RDONLY, 0);    //line:netp:servestatic:open
-    srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);//line:netp:servestatic:mmap
-    Close(srcfd);                           //line:netp:servestatic:close
-    Rio_writen(fd, srcp, filesize);         //line:netp:servestatic:write
-    Munmap(srcp, filesize);                 //line:netp:servestatic:munmap
+    srcfd = Open(filename, O_RDONLY, 0); 
+    srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+    Close(srcfd); 
+    Rio_writen(fd, srcp, filesize);
+    Munmap(srcp, filesize); 
 }
 
-/*
- * get_filetype - derive file type from file name
- */
 void get_filetype(char *filename, char *filetype) 
 {
     if (strstr(filename, ".html"))
@@ -117,21 +95,16 @@ void get_filetype(char *filename, char *filetype)
         strcpy(filetype, "text/plain");
 }  
 
-/*
- * clienterror - returns an error message to the client
- */
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg) 
 {
     char buf[MAXLINE], body[MAXBUF];
 
-    /* Build the HTTP response body */
-    sprintf(body, "<html><title>Tiny Error</title>");
+    sprintf(body, "<html><title>Error</title>");
     sprintf(body, "%s<body bgcolor=""ffffff"">\r\n", body);
     sprintf(body, "%s%s: %s\r\n", body, errnum, shortmsg);
     sprintf(body, "%s<p>%s: %s\r\n", body, longmsg, cause);
     sprintf(body, "%s<hr><em>The Tiny Web server</em>\r\n", body);
 
-    /* Print the HTTP response */
     sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, shortmsg);
     Rio_writen(fd, buf, strlen(buf));
     sprintf(buf, "Content-type: text/html\r\n");
@@ -148,7 +121,7 @@ void *thread(void *vargp)
     int connfd=*((int *)vargp);
     Pthread_detach(pthread_self());
     Free(vargp);
-    doit(connfd);
+    run(connfd);
     Close(connfd);   
     Tcnt--;
     return NULL;
@@ -173,9 +146,9 @@ int main(int argc, char **argv)
     {
         clientlen = sizeof(clientaddr);
         connfdp=malloc(sizeof(int));
-        *connfdp = Accept(listenfd, (SA *)&clientaddr, &clientlen); //line:netp:tiny:accept
+        *connfdp = Accept(listenfd, (SA *)&clientaddr, &clientlen);
         Getnameinfo((SA *) &clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
-        printf("********************************\nAccepted connection from (%s, %s)\n", hostname, port);  //line:netp:tiny:close
+        printf("********************************\nAccepted connection from (%s, %s)\n", hostname, port);
         Pthread_create(&tid,NULL,thread,connfdp);
     }
 }
