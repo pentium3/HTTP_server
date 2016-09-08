@@ -1,7 +1,5 @@
 <doc/>
 
-requirements: 需求分析、架构设计、技术路线、流程图
-
 
 程序实现了一个简易的多线程HTTP server，可以处理并发的静态网页请求。程序需要在linux系统下运行，因为代码实现中使用了linux系统调用（包括文件读取、socket、创建线程等）。
 程序可处理并发的http请求。对于每个请求会开启一个新的线程来响应。每个线程的处理流程如下：解析request header->寻找服务器上相应文件->向套接字发送request header和网页文件
@@ -14,8 +12,6 @@ requirements: 需求分析、架构设计、技术路线、流程图
 
 2.	linux下的多线程
 POSIX线程（英语：POSIX Threads，常被縮寫為Pthreads）是POSIX的线程标准，定义了创建和操纵线程的一套API。实现POSIX 线程标准的库常被称作Pthreads，一般用于Unix-like POSIX 系统，如Linux、 Solaris。Pthreads定义了一套C语言的类型、函数与常量，它以pthread.h头文件和一个线程库实现。Pthreads API中大致共有100个函数调用，全都以"pthread_"开头。
-
-3.	HTTP响应过程
 
 
 函数表：
@@ -42,11 +38,10 @@ rio_t
 	Rio系列IO函数使用的缓冲区
 
 
-
 出现在库中的函数：
 为方便代码实现，程序使用了一个库csapp.h，它提供了一些封装好的常用函数和结构体。
 Open_listenfd(char *port)
-	打开和返回一个监听描述符，以便在port端口上监听请求
+	打开和返回一个监听描述符，它被用于在port端口上监听请求
 Rio_******()
 	一套I/O读写函数包，用于在网络传输中提供稳定可靠的IO读写功能。
 
@@ -54,11 +49,11 @@ Rio_******()
 使用的linux系统调用列表：
 getaddrinfo()	将IP地址/端口号转换为socket结构体链表
 freeaddrinfo()	释放结构体链表
-setsockopt()	
-accept()		
-listen()		
-bind()			
+accept()		阻塞，直到收到一个连接请求，填写客户端地址，并返回一个已连接描述符。它被用于和客户端通信。
+connect()		对指定描述符，建立一个到指定套接字地址的连接
+listen()		将描述符指定为服务器用（监听用）
+bind()			将套接字地址和套接字描述符绑定
 close()			
-socket()		
-getnameinfo()	
+socket()		创建（函数返回）一个套接字描述符
+
 

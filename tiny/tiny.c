@@ -30,11 +30,6 @@ void run(int fd)
         return;
     }
           
-    if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) 
-    {
-        clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
-        return;
-    }
     serve_static(fd, filename, sbuf.st_size);
 }
 
