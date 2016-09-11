@@ -14,12 +14,12 @@ class MyThread(threading.Thread):
 		while(1):
 			for retry in range(10000):
 				try:
-					urllib2.urlopen("http://192.168.2.107:1033/home.html")
+					urllib2.urlopen("http://192.168.1.150/")
 				except:
 					print("TimeOut Error")
 					pass
 
-for i in range(0,1000):
+for i in range(0,100):
 	my = MyThread('test')
 	#my.setDaemon(True)
 	my.start()
